@@ -72,23 +72,26 @@ export async function connectWhatsappAccount(organizationId: string, input: What
     if (value) metadata[key] = value;
   }
   const accountId = generateId();
+  const accountData = {
+    name: input.name,
+    businessName: input.businessName ?? matchedNumber.verifiedName ?? null,
+    businessId: input.businessId,
+    wabaId: input.wabaId,
+    phoneNumberId: input.phoneNumberId,
+    accessTokenEncrypted: encryptSecret(input.accessToken),
+    status: "connected" as const,
+    connectionMessage: "Connected and verified",
+    metadata,
+  };
   const account = await db.transaction(async (transaction) => {
     const rows = await transaction.insert(whatsappAccounts).values({
       id: accountId,
       organizationId,
-      name: input.name,
-      businessName: input.businessName ?? matchedNumber.verifiedName ?? null,
-      businessId: input.businessId,
-      wabaId: input.wabaId,
-      phoneNumberId: input.phoneNumberId,
-      accessTokenEncrypted: encryptSecret(input.accessToken),
-      status: "connected",
-      connectionMessage: "Connected and verified",
-      metadata,
+      ...accountData,
     }).returning();
     const created = rows[0];
     if (!created) throw new Error("WhatsApp account could not be created");
-    await transaction.insert(whatsappPhoneNumbers).values({
+    const phoneRows = await transaction.insert(whatsappPhoneNumbers).values({
       id: generateId(),
       organizationId,
       whatsappAccountId: created.id,
@@ -96,8 +99,27 @@ export async function connectWhatsappAccount(organizationId: string, input: What
       displayPhoneNumber: matchedNumber.displayPhoneNumber,
       verifiedName: matchedNumber.verifiedName ?? null,
       status: matchedNumber.status ?? "active",
-    });
-    return toPublicAccount(created);
+    }).onConflictDoUpdate({
+      target: [whatsappPhoneNumbers.organizationId, whatsappPhoneNumbers.phoneNumberId],
+      set: {
+        displayPhoneNumber: matchedNumber.displayPhoneNumber,
+        verifiedName: matchedNumber.verifiedName ?? null,
+        status: matchedNumber.status ?? "active",
+        updatedAt: new Date(),
+      },
+    }).returning({ whatsappAccountId: whatsappPhoneNumbers.whatsappAccountId });
+    const phone = phoneRows[0];
+    if (!phone) throw new Error("WhatsApp phone number could not be saved");
+    if (phone.whatsappAccountId === created.id) return toPublicAccount(created);
+    const existingRows = await transaction.update(whatsappAccounts).set({
+      ...accountData,
+      deletedAt: null,
+      updatedAt: new Date(),
+    }).where(and(eq(whatsappAccounts.id, phone.whatsappAccountId), eq(whatsappAccounts.organizationId, organizationId))).returning();
+    const existing = existingRows[0];
+    if (!existing) throw new Error("WhatsApp account could not be refreshed");
+    await transaction.delete(whatsappAccounts).where(eq(whatsappAccounts.id, created.id));
+    return toPublicAccount(existing);
   });
   return account;
 }
