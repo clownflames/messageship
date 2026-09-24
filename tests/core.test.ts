@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { getOutboundMessagePolicy } from "@/lib/whatsapp/policy";
 import { generateApiKey, hashSecret, normalizePhoneNumber } from "@/lib/security/crypto";
 import { campaignSchema, contactSchema, loginSchema, sendMessageSchema, signupSchema, templateSchema } from "@/lib/validation/schemas";
+import { MetaWhatsAppCloudClient } from "@/lib/whatsapp/client";
+import { toMetaComponents } from "@/services/templates/templates";
 import { requireScope, type ApiKeyContext } from "@/services/api/keys";
 import { verifyMetaSignature } from "@/lib/whatsapp/webhook";
 import { Whatsapp } from "@/sdk/index";
@@ -45,6 +47,11 @@ describe("validation and secret handling", () => {
     expect(result.success).toBe(true);
   });
 
+  it("requires a body and builds Meta variable examples", () => {
+    expect(templateSchema.safeParse({ name: "missing_body", language: "en_US", category: "UTILITY", components: [{ type: "HEADER", content: "Header", metadata: {} }] }).success).toBe(false);
+    expect(toMetaComponents([{ type: "BODY", content: "Hello {{1}}, order {{2}}", metadata: {} }])).toEqual([{ type: "BODY", text: "Hello {{1}}, order {{2}}", example: { body_text: [["Sample 1", "Sample 2"]] } }]);
+  });
+
   it("validates contact input at the boundary", () => {
     expect(contactSchema.safeParse({ name: "A", phoneNumber: "123" }).success).toBe(false);
   });
@@ -75,6 +82,28 @@ describe("API scopes and webhook signatures", () => {
     const second = hashSecret('{"entry":[]}');
     expect(first).toBe(second);
     expect(first).not.toBe(hashSecret('{"entry":[{"id":"other"}]}'));
+  });
+
+  it("fetches every page of Meta templates", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: string[] = [];
+    globalThis.fetch = async (input) => {
+      requests.push(String(input));
+      if (requests.length === 1) {
+        const next = new URL(requests[0]);
+        next.searchParams.set("after", "cursor");
+        return Response.json({ data: [{ id: "tpl_1", name: "first", language: "en_US", status: "APPROVED", components: [] }], paging: { next: next.toString(), cursors: { after: "cursor" } } });
+      }
+      return Response.json({ data: [{ id: "tpl_2", name: "second", language: "en_US", status: "PENDING", components: [] }] });
+    };
+    try {
+      const templates = await new MetaWhatsAppCloudClient("token").getTemplates("waba");
+      expect(templates.map((template) => template.id)).toEqual(["tpl_1", "tpl_2"]);
+      expect(requests).toHaveLength(2);
+      expect(requests[1]).toContain("after=cursor");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
 

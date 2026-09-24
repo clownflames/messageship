@@ -58,15 +58,40 @@ export const templateComponentSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
-export const templateSchema = z.object({
+const templateFields = {
   name: z.string().trim().min(1).max(120).regex(/^[a-z0-9_]+$/i, "Use letters, numbers, and underscores only"),
   language: z.string().trim().min(2).max(16),
   category: z.enum(["MARKETING", "UTILITY", "AUTHENTICATION"]),
   components: z.array(templateComponentSchema).min(1).max(20),
   variables: z.array(z.string().regex(/^\{\{[1-9]\d*\}\}$/)).max(20).default([]),
+};
+
+export const templateInputSchema = z.object(templateFields);
+export const templateSchema = templateInputSchema.superRefine((value, context) => {
+  const bodyComponents = value.components.filter((component) => component.type === "BODY");
+  if (bodyComponents.length !== 1) {
+    context.addIssue({ code: "custom", path: ["components"], message: "A template must contain exactly one body" });
+  }
+  for (const type of ["HEADER", "FOOTER", "BUTTONS"] as const) {
+    if (value.components.filter((component) => component.type === type).length > 1) {
+      context.addIssue({ code: "custom", path: ["components"], message: `A template can contain only one ${type.toLowerCase()} component` });
+    }
+  }
+  const body = bodyComponents[0];
+  if (body) {
+    const numbers = [...body.content.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]));
+    const uniqueNumbers = [...new Set(numbers)].sort((left, right) => left - right);
+    if (uniqueNumbers.some((number, index) => number !== index + 1)) {
+      context.addIssue({ code: "custom", path: ["components"], message: "Body variables must be sequential and start at {{1}}" });
+    }
+  }
+  const buttons = value.components.find((component) => component.type === "BUTTONS")?.metadata.buttons;
+  if (Array.isArray(buttons) && buttons.length > 3) {
+    context.addIssue({ code: "custom", path: ["components"], message: "A template can contain at most three quick-reply buttons" });
+  }
 });
 
-export const templateUpdateSchema = templateSchema.partial();
+export const templateUpdateSchema = z.object(templateFields).partial();
 
 const mediaFields = {
   mediaUrl: z.url().optional(),

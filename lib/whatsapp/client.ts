@@ -55,7 +55,7 @@ export class MetaWhatsAppCloudClient implements WhatsAppCloudClient {
     this.version = config.version;
   }
 
-  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  private async requestUrl<T>(url: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${this.accessToken}`);
     if (init.body && !(init.body instanceof FormData)) {
@@ -63,7 +63,7 @@ export class MetaWhatsAppCloudClient implements WhatsAppCloudClient {
     }
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}/${this.version}${path}`, {
+      response = await fetch(url, {
         ...init,
         headers,
         signal: AbortSignal.timeout(30_000),
@@ -82,6 +82,10 @@ export class MetaWhatsAppCloudClient implements WhatsAppCloudClient {
       );
     }
     return body as T;
+  }
+
+  private request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    return this.requestUrl(`${this.baseUrl}/${this.version}${path}`, init);
   }
 
   private async send(payload: Record<string, unknown>, phoneNumberId: string): Promise<WhatsAppSendResult> {
@@ -156,14 +160,29 @@ export class MetaWhatsAppCloudClient implements WhatsAppCloudClient {
   }
 
   async getTemplates(wabaId: string): Promise<WhatsAppTemplate[]> {
-    const response = await this.request<GraphResponse>(`/${encodeURIComponent(wabaId)}/message_templates?fields=id,name,language,category,status,components,rejected_reason`);
-    return readArray(response.data).flatMap((item) => {
-      if (!isRecord(item)) return [];
-      const id = readString(item.id);
-      const name = readString(item.name);
-      if (!id || !name) return [];
-      return [{ id, name, language: readString(item.language) ?? "en", category: readString(item.category), status: readString(item.status), components: readArray(item.components).filter(isRecord), rejectedReason: readString(item.rejected_reason) }];
-    });
+    const templates: WhatsAppTemplate[] = [];
+    const query = new URLSearchParams({ fields: "id,name,language,category,status,components,rejected_reason", limit: "100" });
+    let nextUrl: string | undefined = `${this.baseUrl}/${this.version}/${encodeURIComponent(wabaId)}/message_templates?${query.toString()}`;
+    while (nextUrl) {
+      const response = await this.requestUrl<GraphResponse>(nextUrl);
+      templates.push(...readArray(response.data).flatMap((item) => {
+        if (!isRecord(item)) return [];
+        const id = readString(item.id);
+        const name = readString(item.name);
+        if (!id || !name) return [];
+        return [{ id, name, language: readString(item.language) ?? "en", category: readString(item.category), status: readString(item.status), components: readArray(item.components).filter(isRecord), rejectedReason: readString(item.rejected_reason) }];
+      }));
+      const next = readString(readRecord(response.paging).next);
+      if (!next || next === nextUrl) break;
+      try {
+        const parsed: URL = new URL(next, `${this.baseUrl}/`);
+        if (parsed.origin !== new URL(this.baseUrl).origin) throw new Error("unexpected pagination origin");
+        nextUrl = parsed.toString();
+      } catch {
+        throw new WhatsAppApiError("Meta returned an invalid template pagination URL", 502, "INVALID_RESPONSE", null);
+      }
+    }
+    return templates;
   }
 
   async createTemplate(wabaId: string, template: WhatsAppTemplateInput & { category: string; components: Array<Record<string, unknown>> }): Promise<{ id: string; status?: string }> {

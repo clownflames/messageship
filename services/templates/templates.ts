@@ -3,9 +3,9 @@ import { db } from "@/db";
 import { templateComponents, templates, type JsonValue, type Template } from "@/db/schema";
 import { AppError } from "@/lib/errors";
 import { generateId } from "@/lib/security/crypto";
-import { WhatsAppApiError } from "@/lib/whatsapp/types";
+import { WhatsAppApiError, type WhatsAppTemplate } from "@/lib/whatsapp/types";
 import { createWhatsappClient, getWhatsappAccount } from "@/services/whatsapp/accounts";
-import { templateSchema, type TemplateInput } from "@/lib/validation/schemas";
+import { templateSchema, templateUpdateSchema, type TemplateInput } from "@/lib/validation/schemas";
 
 export type TemplateWithComponents = Template & { components: Array<typeof templateComponents.$inferSelect> };
 
@@ -30,21 +30,72 @@ function mapStatus(status: string | undefined): "draft" | "pending" | "approved"
 }
 
 function mapExternalError(error: unknown): never {
-  if (error instanceof WhatsAppApiError) throw new AppError("EXTERNAL_SERVICE_ERROR", error.message, 502);
+  if (error instanceof WhatsAppApiError) {
+    const status = error.status === 400 || error.status === 422 ? 400 : 502;
+    throw new AppError(status === 400 ? "INVALID_REQUEST" : "EXTERNAL_SERVICE_ERROR", error.message, status);
+  }
   throw error;
 }
 
-function toMetaComponents(input: TemplateInput["components"]): Array<Record<string, unknown>> {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractVariableNumbers(content: string): number[] {
+  return [...content.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1]));
+}
+
+function exampleForContent(content: string, type: "HEADER" | "BODY"): Record<string, unknown> | undefined {
+  const numbers = extractVariableNumbers(content);
+  if (numbers.length === 0) return undefined;
+  const values = Array.from({ length: Math.max(...numbers) }, (_, index) => `Sample ${index + 1}`);
+  return type === "BODY" ? { body_text: [values] } : { header_text: values };
+}
+
+export function toMetaComponents(input: TemplateInput["components"]): Array<Record<string, unknown>> {
   return input.map((component) => {
-    if (component.type === "BODY") return { type: "BODY", text: { body: component.content } };
-    if (component.type === "FOOTER") return { type: "FOOTER", text: { body: component.content } };
+    if (component.type === "BODY" || component.type === "FOOTER") {
+      const example = component.type === "BODY" ? component.metadata.example ?? exampleForContent(component.content, "BODY") : undefined;
+      return { type: component.type, text: component.content, ...(example === undefined ? {} : { example }) };
+    }
     if (component.type === "HEADER") {
       const format = typeof component.metadata.format === "string" ? component.metadata.format : "TEXT";
-      return { type: "HEADER", format, text: format === "TEXT" ? { body: component.content } : undefined, example: component.metadata.example };
+      const example = component.metadata.example ?? (format === "TEXT" ? exampleForContent(component.content, "HEADER") : undefined);
+      return { type: "HEADER", format, ...(format === "TEXT" ? { text: component.content } : {}), ...(example === undefined ? {} : { example }) };
     }
     const buttons = Array.isArray(component.metadata.buttons) ? component.metadata.buttons : [];
     return { type: "BUTTONS", buttons };
   });
+}
+
+function toLocalComponents(components: WhatsAppTemplate["components"]): TemplateInput["components"] {
+  const normalized: TemplateInput["components"] = [];
+  for (const component of components ?? []) {
+    if (!isRecord(component)) continue;
+    const type = component.type;
+    if (type === "HEADER" || type === "BODY" || type === "FOOTER") {
+      const content = typeof component.text === "string" ? component.text : "";
+      if (!content) continue;
+      const metadata: Record<string, unknown> = {};
+      if (type === "HEADER" && typeof component.format === "string") metadata.format = component.format;
+      if (component.example !== undefined) metadata.example = component.example;
+      normalized.push({ type, content, metadata });
+    } else if (type === "BUTTONS") {
+      const buttons = Array.isArray(component.buttons) ? component.buttons.filter(isRecord) : [];
+      const content = buttons.map((button) => typeof button.text === "string" ? button.text : "").filter(Boolean).join("\n") || "Buttons";
+      normalized.push({ type, content, metadata: { buttons } });
+    }
+  }
+  return normalized;
+}
+
+function extractVariables(components: TemplateInput["components"]): string[] {
+  const numbers = new Set<number>();
+  for (const component of components) {
+    if (component.type !== "HEADER" && component.type !== "BODY") continue;
+    for (const number of extractVariableNumbers(component.content)) numbers.add(number);
+  }
+  return [...numbers].sort((left, right) => left - right).map((number) => `{{${number}}}`);
 }
 
 async function attachComponents(rows: Template[]): Promise<TemplateWithComponents[]> {
@@ -85,7 +136,10 @@ export async function createTemplate(organizationId: string, input: TemplateInpu
   } catch (error) {
     return mapExternalError(error);
   }
-  const inserted = await db.insert(templates).values({ id: generateId(), organizationId, whatsappAccountId: account.id, externalId: external.id, name: parsed.name, language: parsed.language, category: parsed.category, status: mapStatus(external.status), variables: parsed.variables }).returning();
+  const inserted = await db.insert(templates).values({ id: generateId(), organizationId, whatsappAccountId: account.id, externalId: external.id, name: parsed.name, language: parsed.language, category: parsed.category, status: mapStatus(external.status), variables: extractVariables(parsed.components) }).onConflictDoUpdate({
+    target: [templates.whatsappAccountId, templates.name, templates.language],
+    set: { externalId: external.id, status: mapStatus(external.status), variables: extractVariables(parsed.components), rejectionReason: null, deletedAt: null, updatedAt: new Date() },
+  }).returning();
   const template = inserted[0];
   if (!template) throw new AppError("INTERNAL_ERROR", "Template could not be saved", 500);
   await replaceComponents(template.id, parsed.components);
@@ -94,7 +148,7 @@ export async function createTemplate(organizationId: string, input: TemplateInpu
 
 export async function updateTemplate(organizationId: string, templateId: string, input: Partial<TemplateInput>): Promise<TemplateWithComponents> {
   const existing = await getTemplate(organizationId, templateId);
-  const parsed = templateSchema.partial().parse(input);
+  const parsed = templateUpdateSchema.parse(input);
   if (parsed.name && parsed.name !== existing.name && existing.status !== "draft") throw new AppError("INVALID_REQUEST", "Submitted templates cannot be renamed", 422);
   if (existing.externalId) {
     try {
@@ -130,12 +184,13 @@ export async function refreshTemplateStatuses(organizationId: string, accountId:
     return mapExternalError(error);
   }
   for (const item of remote) {
-    const existing = await db.select({ id: templates.id }).from(templates).where(and(eq(templates.organizationId, organizationId), eq(templates.externalId, item.id))).limit(1);
-    if (existing[0]) {
-      await db.update(templates).set({ status: mapStatus(item.status), rejectionReason: item.rejectedReason ?? null, updatedAt: new Date() }).where(eq(templates.id, existing[0].id));
-    } else {
-      await db.insert(templates).values({ id: generateId(), organizationId, whatsappAccountId: account.id, externalId: item.id, name: item.name, language: item.language, category: item.category ?? "UTILITY", status: mapStatus(item.status), variables: [], rejectionReason: item.rejectedReason ?? null });
-    }
+    const components = toLocalComponents(item.components);
+    const variables = extractVariables(components);
+    const synced = await db.insert(templates).values({ id: generateId(), organizationId, whatsappAccountId: account.id, externalId: item.id, name: item.name, language: item.language, category: item.category ?? "UTILITY", status: mapStatus(item.status), variables, rejectionReason: item.rejectedReason ?? null }).onConflictDoUpdate({
+      target: [templates.whatsappAccountId, templates.name, templates.language],
+      set: { externalId: item.id, category: item.category ?? "UTILITY", status: mapStatus(item.status), variables, rejectionReason: item.rejectedReason ?? null, deletedAt: null, updatedAt: new Date() },
+    }).returning({ id: templates.id });
+    if (synced[0]) await replaceComponents(synced[0].id, components);
   }
   return listTemplates(organizationId, accountId);
 }

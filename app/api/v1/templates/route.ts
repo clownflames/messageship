@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiFailure, apiSuccess, parseJsonBody } from "@/lib/errors";
 import { requireApiContext } from "@/lib/api/auth";
-import { templateSchema } from "@/lib/validation/schemas";
+import { templateInputSchema } from "@/lib/validation/schemas";
 import { createTemplate, listTemplates } from "@/services/templates/templates";
 
 export async function GET(request: Request): Promise<Response> {
@@ -18,7 +18,7 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   try {
     const context = await requireApiContext(request, "templates:write");
-    const body = await parseJsonBody(request, templateSchema.extend({ whatsappAccountId: z.string().trim().min(1) }));
+    const body = await parseJsonBody(request, templateInputSchema.extend({ whatsappAccountId: z.string().trim().min(1) }));
     const { whatsappAccountId, ...input } = body;
     const template = await createTemplate(context.organizationId, { ...input, whatsappAccountId });
     return apiSuccess({ template }, 201);

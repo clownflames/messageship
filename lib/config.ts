@@ -68,14 +68,9 @@ export function getAppUrl(): string {
   return getServerEnv().NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
 }
 
-export function getMetaConfig(): { appId: string; appSecret: string; version: string; apiUrl: string } {
+export function getMetaConfig(): { version: string; apiUrl: string } {
   const env = getServerEnv();
-  if (!env.META_APP_ID || !env.META_APP_SECRET) {
-    throw new Error("Meta integration is not configured");
-  }
   return {
-    appId: env.META_APP_ID,
-    appSecret: env.META_APP_SECRET,
     version: env.META_GRAPH_API_VERSION,
     apiUrl: env.META_GRAPH_API_URL,
   };
