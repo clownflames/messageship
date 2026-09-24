@@ -17,6 +17,17 @@ function replaceVariables(value: unknown, variables: Record<string, string>): un
   return value;
 }
 
+function toTemplateSendComponents(components: Array<{ type: string; content: string }>, variables: Record<string, string>): Array<Record<string, unknown>> {
+  const rendered: Array<Record<string, unknown>> = [];
+  for (const component of components) {
+    if (component.type !== "HEADER" && component.type !== "BODY") continue;
+    const numbers = [...new Set([...component.content.matchAll(/\{\{(\d+)\}\}/g)].map((match) => Number(match[1])))].sort((left, right) => left - right);
+    if (numbers.length === 0) continue;
+    rendered.push({ type: component.type.toLowerCase(), parameters: numbers.map((number) => ({ type: "text", text: String(replaceVariables(`{{${number}}}`, variables) ?? "") })) });
+  }
+  return rendered;
+}
+
 async function getTemplateForCampaign(organizationId: string, templateId: string) {
   const rows = await db.select().from(templates).where(and(eq(templates.id, templateId), eq(templates.organizationId, organizationId), isNull(templates.deletedAt))).limit(1);
   const template = rows[0];
@@ -83,8 +94,8 @@ export async function processCampaignRecipientJob(input: { organizationId: strin
   if (!contact) throw new AppError("NOT_FOUND", "Campaign contact no longer exists", 404);
   const { template, components } = await getTemplateForCampaign(campaign.organizationId, campaign.templateId);
   const variables = recipient.variables;
-  const renderedComponents = components.map((component) => replaceVariables({ type: component.type, text: { body: component.content } }, variables));
-  const messageInput: SendMessageInput = { whatsappAccountId: campaign.whatsappAccountId, to: contact.phoneNumber, type: "template", template: { name: template.name, language: template.language, components: renderedComponents as Array<Record<string, unknown>> } };
+  const renderedComponents = toTemplateSendComponents(components, variables);
+  const messageInput: SendMessageInput = { whatsappAccountId: campaign.whatsappAccountId, to: contact.phoneNumber, type: "template", template: { name: template.name, language: template.language, components: renderedComponents } };
   await db.update(campaignRecipients).set({ status: "sending", updatedAt: new Date() }).where(eq(campaignRecipients.id, recipient.id));
   try {
     const message = await sendTenantMessage(campaign.organizationId, messageInput);

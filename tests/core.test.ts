@@ -105,6 +105,30 @@ describe("API scopes and webhook signatures", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("uses the Kapso client for messages and template creation", async () => {
+    const originalFetch = globalThis.fetch;
+    const requests: Array<{ url: string; body: Record<string, unknown> }> = [];
+    globalThis.fetch = async (input, init) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      requests.push({ url, body });
+      if (url.includes("/message_templates")) return Response.json({ id: "tpl_1", status: "PENDING", category: "UTILITY" });
+      return Response.json({ messagingProduct: "whatsapp", contacts: [], messages: [{ id: "wamid_1" }] });
+    };
+    try {
+      const client = new MetaWhatsAppCloudClient("token");
+      const message = await client.sendText({ phoneNumberId: "phone", to: "15551234567", text: "Hello" });
+      const template = await client.createTemplate("waba", { name: "order_update", language: "en_US", category: "UTILITY", components: [{ type: "BODY", text: "Hello" }] });
+      expect(message).toEqual({ messageId: "wamid_1" });
+      expect(template).toEqual({ id: "tpl_1", status: "PENDING" });
+      expect(requests[0].body).toMatchObject({ messaging_product: "whatsapp", text: { body: "Hello" } });
+      expect(requests[1].url).toContain("/waba/message_templates");
+      expect(requests[1].body).toMatchObject({ name: "order_update", language: "en_US" });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });
 
 describe("SDK and provider boundaries", () => {
