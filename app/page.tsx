@@ -1,69 +1,16 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, BarChart3, Bot, Check, MessageSquareText, PlugZap, ShieldCheck, Workflow } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button-link";
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+const capabilities = [
+  { icon: PlugZap, title: "Every number, one workspace", description: "Connect multiple WhatsApp Cloud API accounts and keep each conversation in context." },
+  { icon: MessageSquareText, title: "A real inbox", description: "Search, filter, assign, and reply from a fast workspace built for support teams." },
+  { icon: Workflow, title: "Campaigns that respect the rules", description: "Schedule approved templates through a queue with transparent delivery results." },
+  { icon: Bot, title: "AI on your terms", description: "Bring your preferred model provider and build workflows without exposing credentials." },
+  { icon: BarChart3, title: "Useful analytics", description: "Understand delivery health, conversations, contacts, campaigns, and API usage." },
+  { icon: ShieldCheck, title: "Security by default", description: "Tenant isolation, scoped API keys, encrypted secrets, signed webhooks, and audit logs." },
+];
+
+export default function HomePage() {
+  return <main className="overflow-hidden bg-background"><header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-6 lg:px-8"><Link href="/" className="flex items-center gap-2 font-semibold"><span className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground"><MessageSquareText className="h-5 w-5" /></span>MessageShip</Link><nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex"><a href="#capabilities">Capabilities</a><a href="#security">Security</a><a href="#developers">Developers</a></nav><div className="flex items-center gap-2"><ButtonLink href="/login" variant="ghost">Sign in</ButtonLink><ButtonLink href="/signup">Get started <ArrowRight className="ml-1 h-4 w-4" /></ButtonLink></div></header><section className="mx-auto max-w-7xl px-5 pb-24 pt-20 lg:px-8 lg:pb-32 lg:pt-28"><div className="mx-auto max-w-4xl text-center"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">One dashboard. Every conversation.</p><h1 className="mt-6 font-heading text-5xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">Run every WhatsApp conversation with clarity.</h1><p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">MessageShip gives growing teams one secure control panel for WhatsApp Cloud API accounts, customer conversations, campaigns, automations, and developer workflows.</p><div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row"><ButtonLink href="/signup" size="lg" className="h-11">Create your workspace <ArrowRight className="ml-2 h-4 w-4" /></ButtonLink><ButtonLink href="/login" size="lg" variant="outline" className="h-11">Explore the dashboard</ButtonLink></div></div><div className="relative mx-auto mt-20 max-w-5xl rounded-[2rem] border bg-slate-950 p-3 shadow-2xl shadow-primary/10"><div className="rounded-[1.5rem] border border-white/10 bg-slate-900 p-5 text-left text-white"><div className="flex items-center justify-between border-b border-white/10 pb-4"><div className="flex items-center gap-2 text-sm font-medium"><span className="h-2 w-2 rounded-full bg-emerald-400" />Live workspace</div><span className="text-xs text-slate-400">All systems operational</span></div><div className="grid gap-4 py-5 sm:grid-cols-3"><div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">Messages today</p><p className="mt-2 text-3xl font-semibold">1,284</p><p className="mt-1 text-xs text-emerald-300">↑ 18.4% this week</p></div><div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">Open conversations</p><p className="mt-2 text-3xl font-semibold">238</p><p className="mt-1 text-xs text-slate-400">Across 4 numbers</p></div><div className="rounded-xl border border-white/10 bg-white/5 p-4"><p className="text-xs text-slate-400">Delivery rate</p><p className="mt-2 text-3xl font-semibold">96.8%</p><p className="mt-1 text-xs text-emerald-300">Healthy account status</p></div></div><div className="rounded-xl border border-white/10 bg-white/5 p-4"><div className="flex items-center justify-between"><p className="text-sm font-medium">Conversation volume</p><span className="text-xs text-slate-400">Last 7 days</span></div><div className="mt-6 flex h-32 items-end gap-2">{[35, 48, 42, 66, 58, 82, 94, 76, 88, 100, 84, 92, 72, 86].map((height, index) => <div key={index} className="flex-1 rounded-t bg-emerald-400/70" style={{ height: `${height}%` }} />)}</div></div></div></div></section><section id="capabilities" className="border-y bg-muted/30 px-5 py-20 lg:px-8"><div className="mx-auto max-w-7xl"><div className="max-w-2xl"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">A complete operating layer</p><h2 className="mt-4 font-heading text-4xl font-semibold tracking-tight">Less tab switching. More customer momentum.</h2><p className="mt-4 text-lg leading-8 text-muted-foreground">The essentials are connected, observable, and ready to scale with your team.</p></div><div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{capabilities.map(({ icon: Icon, title, description }) => <div key={title} className="rounded-2xl border bg-background p-6 shadow-sm"><span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span><h3 className="mt-5 font-heading text-xl font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p></div>)}</div></div></section><section id="security" className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-2 lg:items-center lg:px-8"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Trust is a feature</p><h2 className="mt-4 font-heading text-4xl font-semibold tracking-tight">A control panel your security team can believe.</h2><p className="mt-4 text-lg leading-8 text-muted-foreground">Credentials are encrypted at rest, API access is scoped, every sensitive action is auditable, and tenant boundaries are enforced on the server.</p><ul className="mt-8 space-y-4">{["Encrypted Meta and AI credentials", "Hashed, show-once API keys", "Signed and idempotent Meta webhooks", "Server-side authorization on every operation"].map((item) => <li key={item} className="flex items-center gap-3 text-sm"><span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-500/10 text-emerald-600"><Check className="h-3.5 w-3.5" /></span>{item}</li>)}</ul></div><div className="rounded-3xl border bg-slate-950 p-6 text-white shadow-xl"><div className="flex items-center gap-3 border-b border-white/10 pb-5"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-400 text-slate-950"><ShieldCheck className="h-5 w-5" /></span><div><p className="font-medium">Workspace security</p><p className="text-xs text-slate-400">Live policy overview</p></div><span className="ml-auto rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-300">Protected</span></div><div className="space-y-4 pt-5">{[["Tenant isolation", "Enforced", "bg-emerald-400"], ["Credential storage", "Encrypted", "bg-emerald-400"], ["API authentication", "Scoped keys", "bg-emerald-400"], ["Webhook delivery", "Signed", "bg-emerald-400"]].map(([label, value, color]) => <div key={label} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3"><span className="text-sm text-slate-300">{label}</span><span className="flex items-center gap-2 text-sm font-medium"><span className={`h-2 w-2 rounded-full ${color}`} />{value}</span></div>)}</div></div></section><section id="developers" className="bg-primary px-5 py-20 text-primary-foreground lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-8 md:flex-row md:items-end"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Built for your stack</p><h2 className="mt-4 max-w-2xl font-heading text-4xl font-semibold tracking-tight">A clean API when the dashboard is not enough.</h2><p className="mt-4 max-w-xl text-primary-foreground/75">Connect external systems with scoped API keys, signed event webhooks, and a strongly typed TypeScript SDK.</p></div><ButtonLink href="/docs" variant="secondary" size="lg" className="shrink-0">Read the API docs <ArrowRight className="ml-2 h-4 w-4" /></ButtonLink></div></section><footer className="mx-auto flex max-w-7xl flex-col justify-between gap-4 px-5 py-8 text-sm text-muted-foreground sm:flex-row lg:px-8"><span className="font-medium text-foreground">MessageShip</span><span>Secure customer communication infrastructure.</span></footer></main>;
 }

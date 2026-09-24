@@ -1,0 +1,10 @@
+import type { Metadata } from "next";
+import { Download, FileCode2, PackageCheck } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ButtonLink } from "@/components/ui/button-link";
+
+export const metadata: Metadata = { title: "SDK | MessageShip" };
+
+export default function SdkPage() {
+  return <div className="space-y-8"><div><p className="text-sm font-medium text-primary">Developer tools</p><h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight">Whatsapp.ts SDK</h1><p className="mt-2 text-sm text-muted-foreground">A strongly typed TypeScript client for integrating MessageShip into your own products.</p></div><div className="grid gap-6 lg:grid-cols-2"><Card><CardHeader><CardTitle className="flex items-center gap-2"><FileCode2 className="h-5 w-5 text-primary" />Download the client</CardTitle><CardDescription>Start with the source file or read the SDK README.</CardDescription></CardHeader><CardContent className="space-y-3"><ButtonLink href="/api/developer/sdk" className="h-10 w-full"><Download className="mr-2 h-4 w-4" />Download Whatsapp.ts</ButtonLink><ButtonLink href="/api/developer/sdk/readme" variant="outline" className="h-10 w-full"><Download className="mr-2 h-4 w-4" />Download SDK README</ButtonLink></CardContent></Card><Card><CardHeader><CardTitle className="flex items-center gap-2"><PackageCheck className="h-5 w-5 text-primary" />Quick start</CardTitle></CardHeader><CardContent><pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-6 text-slate-100"><code>{`import { Whatsapp } from "./Whatsapp";\n\nconst whatsapp = new Whatsapp("sk_live_xxxxxxxxx", {\n  baseUrl: "https://your-app.example.com/api/v1",\n});\n\nawait whatsapp.messages.sendText({\n  whatsappAccountId: "acct_123",\n  to: "15550102000",\n  text: "Hello",\n});`}</code></pre></CardContent></Card></div><div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">The download is generated from the same typed source used by the repository. API keys are passed at runtime and are never embedded in the SDK.</div></div>;
+}

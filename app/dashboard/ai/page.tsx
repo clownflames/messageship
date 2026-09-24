@@ -1,0 +1,18 @@
+import type { Metadata } from "next";
+import { Bot, KeyRound, Power, Trash2 } from "lucide-react";
+import { requireWorkspace } from "@/lib/auth/tenant";
+import { deleteAIProviderAction, toggleAIProviderAction } from "@/app/actions/ai";
+import { listAIProviders } from "@/services/ai/providers";
+import { AIProviderForm } from "@/components/ai/ai-provider-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata: Metadata = { title: "AI providers | MessageShip" };
+
+export default async function AIPage() {
+  const context = await requireWorkspace();
+  let providers: Awaited<ReturnType<typeof listAIProviders>> = [];
+  try { providers = await listAIProviders(context.organization.id); } catch { providers = []; }
+  return <div className="space-y-8"><div><p className="text-sm font-medium text-primary">Intelligence layer</p><h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight">AI providers</h1><p className="mt-2 text-sm text-muted-foreground">Connect provider-agnostic models without exposing credentials to the browser.</p></div><div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]"><Card><CardHeader><CardTitle>Add provider</CardTitle><CardDescription>Keys are encrypted with your workspace encryption key.</CardDescription></CardHeader><CardContent><AIProviderForm /></CardContent></Card><Card><CardHeader><CardTitle>Configured providers</CardTitle><CardDescription>Enabled providers are available to workflow AI nodes.</CardDescription></CardHeader><CardContent>{providers.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed text-center"><Bot className="mb-3 h-8 w-8 text-muted-foreground" /><p className="font-medium">No AI providers configured</p><p className="mt-1 text-sm text-muted-foreground">Add OpenAI, DeepSeek, Anthropic, Gemini, Ollama, or another compatible endpoint.</p></div> : <div className="space-y-3">{providers.map((provider) => <div key={provider.id} className="flex flex-col justify-between gap-3 rounded-xl border p-4 sm:flex-row sm:items-center"><div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-lg bg-primary/10 text-primary"><KeyRound className="h-4 w-4" /></span><div><p className="font-medium">{provider.name}</p><p className="text-xs text-muted-foreground">{provider.kind}{provider.baseUrl ? ` · ${provider.baseUrl}` : ""}</p></div></div><div className="flex items-center gap-2"><Badge className={provider.enabled ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-muted bg-muted text-muted-foreground"}>{provider.enabled ? "Enabled" : "Disabled"}</Badge><form action={toggleAIProviderAction}><input type="hidden" name="providerId" value={provider.id} /><input type="hidden" name="enabled" value={(!provider.enabled).toString()} /><Button type="submit" variant="ghost" size="icon" aria-label={provider.enabled ? "Disable provider" : "Enable provider"}><Power /></Button></form><form action={deleteAIProviderAction}><input type="hidden" name="providerId" value={provider.id} /><Button type="submit" variant="ghost" size="icon" aria-label="Delete provider" className="text-destructive"><Trash2 /></Button></form></div></div>)}</div>}</CardContent></Card></div><div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">Provider secrets are never returned by the dashboard or public API. Use the automation engine to reference a provider by ID and model.</div></div>;
+}

@@ -1,0 +1,18 @@
+import type { Metadata } from "next";
+import { CheckCircle2, Trash2, Webhook as WebhookIcon } from "lucide-react";
+import { requireWorkspace } from "@/lib/auth/tenant";
+import { deleteWebhookAction } from "@/app/actions/webhooks";
+import { listWebhooks } from "@/services/webhooks/webhooks";
+import { WebhookCreateForm } from "@/components/forms/webhook-form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+export const metadata: Metadata = { title: "Webhooks | MessageShip" };
+
+export default async function WebhooksPage() {
+  const context = await requireWorkspace();
+  let webhooks: Awaited<ReturnType<typeof listWebhooks>> = [];
+  try { webhooks = await listWebhooks(context.organization.id); } catch { webhooks = []; }
+  return <div className="space-y-8"><div><p className="text-sm font-medium text-primary">Event delivery</p><h1 className="mt-1 font-heading text-3xl font-semibold tracking-tight">Webhooks</h1><p className="mt-2 text-sm text-muted-foreground">Receive signed MessageShip events in your own systems.</p></div><div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]"><Card><CardHeader><CardTitle>Create endpoint</CardTitle><CardDescription>Every delivery includes an HMAC signature header.</CardDescription></CardHeader><CardContent><WebhookCreateForm /></CardContent></Card><Card><CardHeader><CardTitle>Configured endpoints</CardTitle><CardDescription>Failed deliveries are retried by the queue worker.</CardDescription></CardHeader><CardContent>{webhooks.length === 0 ? <div className="flex min-h-56 flex-col items-center justify-center rounded-xl border border-dashed text-center"><WebhookIcon className="mb-3 h-8 w-8 text-muted-foreground" /><p className="font-medium">No webhooks configured</p><p className="mt-1 text-sm text-muted-foreground">Add an HTTPS endpoint to receive message and campaign events.</p></div> : <div className="space-y-3">{webhooks.map((webhook) => <div key={webhook.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium">{webhook.name}</p><p className="mt-1 max-w-sm truncate font-mono text-xs text-muted-foreground">{webhook.url}</p></div><Badge className={webhook.enabled && webhook.lastDeliveryStatus !== "failed" ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300"}>{webhook.enabled ? webhook.lastDeliveryStatus ?? "Enabled" : "Disabled"}</Badge></div><div className="mt-3 flex flex-wrap gap-1">{webhook.events.map((event) => <Badge key={event} variant="secondary">{event}</Badge>)}</div><div className="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>{webhook.lastDeliveryAt ? `Last delivery ${new Intl.DateTimeFormat("en", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(webhook.lastDeliveryAt)}` : "No deliveries yet"}</span><form action={deleteWebhookAction}><input type="hidden" name="webhookId" value={webhook.id} /><Button type="submit" variant="ghost" size="sm" className="text-destructive"><Trash2 className="mr-1.5 h-3.5 w-3.5" />Disable</Button></form></div></div>)}</div>}</CardContent></Card></div><div className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Verify <code className="mx-1 rounded bg-muted px-1">X-Webhook-Signature</code> with the secret shown at creation and compare it using a constant-time HMAC-SHA256 check.</div></div>;
+}

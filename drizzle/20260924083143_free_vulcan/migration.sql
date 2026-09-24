@@ -1,0 +1,1 @@
+ALTER TABLE "whatsapp_accounts" ALTER COLUMN "access_token_encrypted" DROP NOT NULL;
